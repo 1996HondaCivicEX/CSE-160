@@ -431,19 +431,20 @@ var g_map = [
   [1,0,0,0,0,0,0,1],
 ];
 
-function drawMap(){
-  for(x = 0; x < g_map[0].length; x++){
-    for(y = 0; y < g_map.length; y++){
-      if(g_map[y][x] == 1){
-        var wall = new Cube();
-        wall.color = [1,1,1,1];
-        wall.matrix.translate(0,0, 0);
-        //wall.matrix.scale(0.3, .3, 0.3);
-        wall.matrix.translate(x - 4, -0.5, y - 4);
-        wall.render();
-      }
+function drawMap() {
+    for (let x = 0; x < 32; x++) {
+        for (let y = 0; y < 32; y++) {
+            // Only draw walls on the edges
+            if (x === 0 || x === 31 || y === 0 || y === 31) {
+                var body = new Cube();
+                body.color = [0.8, 1.0, 1.0, 1.0];  // cyan-ish color
+                body.matrix.translate(0, -0.5, 0); // raise or lower cube
+                body.matrix.scale(0.3, 0.3, 0.3);  // size of cube
+                body.matrix.translate(x - 16, 0, y - 16); // position in grid
+                body.render();
+            }
+        }
     }
-  }
 }
 
 function keydown(ev){
