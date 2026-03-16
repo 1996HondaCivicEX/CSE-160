@@ -1,0 +1,308 @@
+    <!DOCTYPE html>
+    <html>
+    <body style="margin:0">
+    <script type="importmap">
+    { 
+        "imports":{ 
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        } 
+    }
+    </script>
+    <script type="module">
+
+        import * as THREE from 'three';
+        import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+        import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+        import {MTLLoader} from 'three/addons/loaders/MTLLoader.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        //import { FlyControls } from 'three/addons/controls/FlyControls.js';
+        import { FirstPersonControls } from 'three/addons/controls/FirstPersonControls.js';
+        import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+
+        class ColorGUIHelper {
+            constructor(object, prop) {
+                this.object = object;
+                this.prop = prop;
+            }
+            get value() {
+                return '#' + this.object[this.prop].getHexString();
+            }
+            set value(hexString) {
+                this.object[this.prop].set(hexString);
+            }
+        }
+
+        // Core three, these seem to be the basic setup
+        const scene    = new THREE.Scene();
+        const camera   = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(innerWidth, innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Object, learn the different object objects, I need at least 20 to work with. 
+
+        //all my consts for each of my imports
+        const loader = new THREE.TextureLoader();
+        const skyloader = new THREE.TextureLoader();
+        const objLoader = new OBJLoader();
+        const mtlLoader = new MTLLoader();
+        const gltfLoader = new GLTFLoader();
+        const clock = new THREE.Clock();
+        const gui = new GUI();
+
+        //const controls = new FlyControls(camera, renderer.domElement);
+        const controls = new FirstPersonControls(camera, renderer.domElement);
+        camera.position.set(0, 5, 20);
+
+        const planeSize = 40;
+        const texture = loader.load('checker.jpg'); 
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.magFilter = THREE.NearestFilter;
+        texture.colorSpace = THREE.SRGBColorSpace;
+        const repeats = planeSize / 2;
+        texture.repeat.set(repeats, repeats);
+
+        const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+        const planeMat = new THREE.MeshStandardMaterial({ map: texture });
+        const mesh = new THREE.Mesh(planeGeo, planeMat);
+        mesh.rotation.x = -Math.PI / 2;  // rotate flat on the ground
+        mesh.position.y = -1;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+
+    
+
+        //my control values
+        controls.movementSpeed = 3;
+        controls.lookSpeed = 0.1;
+        controls.autoForward = false;
+        controls.mouseDragOn = false;
+
+        let cameraLocked = false;
+
+        function toggleCameraLock() {
+            cameraLocked = !cameraLocked;
+            controls.enabled = !cameraLocked;
+            console.log('Camera ' + (cameraLocked ? 'locked' : 'unlocked'));
+        }
+
+        // L key to toggle lock
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyL') toggleCameraLock();
+        });
+        //controls.dragToLook = true;
+
+
+        //texture for my boxes and other shapes
+        const sharedMaterials = [
+            new THREE.MeshStandardMaterial({map: loader.load('deceased.jpg')}),
+            new THREE.MeshStandardMaterial({map: loader.load('deceased.jpg')}),
+            new THREE.MeshStandardMaterial({map: loader.load('deceased.jpg')}),
+            new THREE.MeshStandardMaterial({map: loader.load('deceased.jpg')}),
+            new THREE.MeshStandardMaterial({map: loader.load('deceased.jpg')}),
+            new THREE.MeshStandardMaterial({map: loader.load('deceased.jpg')}),
+        ];
+
+        const sky = loader.load(
+            'sky.jpg',
+            () => {
+            sky.mapping = THREE.EquirectangularReflectionMapping;
+            sky.colorSpace = THREE.SRGBColorSpace;
+            sky.rotation = Math.PI / 2;
+            sky.center.set(0.5, 0.5);      
+            scene.background = sky;
+        });
+        
+
+        //the bugatti
+        mtlLoader.load('bugatti.mtl', (mtl) => {
+            mtl.preload();
+            for (const material of Object.values(mtl.materials)) {
+                material.side = THREE.DoubleSide;
+            }
+            objLoader.setMaterials(mtl);
+
+            objLoader.load('bugatti.obj', (object) => {
+                object.scale.setScalar(0.2);
+                scene.add(object);
+            });
+        });
+
+        
+        //castelia city, its too big to figure out
+
+        /*
+        mtlLoader.load('Castelia City.mtl', (mtl) =>{
+            mtl.preload();
+            for (const material of Object.values(mtl.materials)) {
+                material.side = THREE.DoubleSide;
+            }
+            objLoader.setMaterials(mtl);
+            
+            objLoader.load('Castelia City.obj', (object) => {
+                object.scale.setScalar(0.001);
+                scene.add(object);
+            });
+        })
+        */
+
+
+
+        //I have to create a new mesh every time I want a new shape
+        //this parts for if I don't have any kind of texture, but that's not gonna happen
+        //new THREE.MeshStandardMaterial({ color: 0x00aaff })
+        const cube = new THREE.Mesh(
+            new THREE.BoxGeometry(), 
+            sharedMaterials
+        );
+        const cube2 = new THREE.Mesh(
+            new THREE.BoxGeometry(),
+            sharedMaterials
+        );
+        cube.position.set(-2, 0, 0);
+        cube2.position.set(2, 0, 0);
+        scene.add(cube, cube2);
+
+        function tree(x, y, z) {
+            const tree = new THREE.Group(); // group them together
+
+            // Trunk
+            const trunkGeo = new THREE.BoxGeometry(0.5, 2, 0.5);
+            const trunkMat = new THREE.MeshLambertMaterial({ color: 0x8B4513 }); // brown
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 1; // lift up so it sits on the ground
+            tree.add(trunk);
+
+            // Canopy — stack a few boxes for a more interesting look
+            const leavesMat = new THREE.MeshLambertMaterial({ color: 0x228B22 }); // green
+
+            const canopy1 = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 3), leavesMat);
+            canopy1.position.y = 3;
+            tree.add(canopy1);
+
+            const canopy2 = new THREE.Mesh(new THREE.BoxGeometry(2, 1.5, 2), leavesMat);
+            canopy2.position.y = 4.5;
+            tree.add(canopy2);
+
+            const canopy3 = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), leavesMat);
+            canopy3.position.y = 5.5;
+            tree.add(canopy3);
+
+            // Position the whole tree
+            tree.position.set(x, y, z);
+            return tree;
+        }
+        scene.add(tree(10, -1, 5));
+        scene.add(tree(-8, -1, 3));
+        scene.add(tree(15, -1, -10));
+
+        function bubbleTree(x, y, z){
+            const tree = new THREE.Group();
+            const trunkGeo = new THREE.BoxGeometry(0.5, 4, 0.5);
+            const trunkMat = new THREE.MeshLambertMaterial({ color: 0x8B4513 }); // brown
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 1; 
+            tree.add(trunk);
+
+            const leavesMat = new THREE.MeshLambertMaterial({ color: 0x228B22 }); // green
+
+            const canopy1 = new THREE.Mesh(new THREE.SphereGeometry(3, 2, 3), leavesMat);
+            canopy1.position.y = 5;
+            tree.add(canopy1);
+
+            tree.position.set(x, y, z);
+            return tree;
+        }
+
+        scene.add(bubbleTree(-15, -1, -6));
+        scene.add(bubbleTree(7, -1, -14));
+        scene.add(bubbleTree(-12, -1, 8));
+        scene.add(bubbleTree(18, -1, 2));
+        scene.add(bubbleTree(-6, -1, -16));
+
+        function building(x, y, z){
+            const buildingMesh = new THREE.BoxGeometry(4,10,4)
+            const buildingMat = new THREE.MeshLambertMaterial({ 
+                map: loader.load('building.jpg')  // use your existing loader
+            });
+            const building = new THREE.Mesh(buildingMesh, buildingMat);
+            building.position.set(x, y, z);
+            scene.add(building);
+        }
+
+        building(10, 4, 10);   
+        building(-10, 4, -5);
+        building(5, 4, -12);
+
+        // Light, I could use whatever else I learned through the other part, this is helpful
+        const skyColor = 0xB1E1FF;  // light blue
+        const groundColor = 0xB97A20;  // brownish orange
+        const intensity = 1;
+        //const light = new THREE.AmbientLight(color, intensity);
+
+        const light = new THREE.HemisphereLight(skyColor, groundColor, intensity);
+        light.castShadow = true;
+        scene.add(light);
+
+        const dirLight = new THREE.DirectionalLight(0xFFFFFF, 1);
+        dirLight.position.set(5, 10, 5);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        const spotLight = new THREE.SpotLight(0xFFFFFF, 1);
+        spotLight.position.set(0, 10, 0);  
+        spotLight.angle = Math.PI / 6;      
+        gui.add(spotLight, 'penumbra', 0, 1, 0.01);
+        spotLight.target.position.set(0, 0, 0);
+        scene.add(spotLight);
+        scene.add(spotLight.target);
+
+
+        //gui.addColor(new ColorGUIHelper(light, 'color'), 'value').name('color');
+        gui.addColor(new ColorGUIHelper(light, 'color'), 'value').name('skyColor');
+        gui.addColor(new ColorGUIHelper(light, 'groundColor'), 'value').name('groundColor');
+        gui.add(light, 'intensity', 0, 5, 0.01);
+
+        const dirFolder = gui.addFolder('Directional Light');
+        dirFolder.addColor(new ColorGUIHelper(dirLight, 'color'), 'value').name('color');
+        dirFolder.add(dirLight, 'intensity', 0, 5, 0.01);
+        dirFolder.add(dirLight.position, 'x', -20, 20);
+        dirFolder.add(dirLight.position, 'y', -20, 20);
+        dirFolder.add(dirLight.position, 'z', -20, 20);
+
+        const spotFolder = gui.addFolder('Spot Light');
+        spotFolder.addColor(new ColorGUIHelper(spotLight, 'color'), 'value').name('color');
+        spotFolder.add(spotLight, 'intensity', 0, 300, 0.01);
+        spotFolder.add(spotLight, 'angle', 0, Math.PI / 2, 0.01);
+        spotFolder.add(spotLight, 'penumbra', 0, 1, 0.01);
+        spotFolder.add(spotLight.position, 'x', -20, 20);
+        spotFolder.add(spotLight.position, 'y', 0, 20);
+        spotFolder.add(spotLight.position, 'z', -20, 20);
+
+
+
+        // Camera back so we can see origin
+        //camera.position.z = 3;
+
+        // Animation work
+        function animate() {
+            requestAnimationFrame(animate);
+
+            //my delta to use the controls
+            const delta = clock.getDelta();
+            controls.update(delta);
+
+            //cube animations
+            cube.rotation.y += 1;
+            cube2.rotation.y += 0.01;
+            cube.rotation.x += 1;
+
+            //this must be last, do not touch
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+    </body>
+    </html>
